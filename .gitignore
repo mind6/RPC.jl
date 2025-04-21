@@ -1,0 +1,19 @@
+# Julia specific
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+deps/deps.jl
+docs/build/
+docs/site/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Editor files
+*~
+.vscode/
+.idea/
+
+# Logs
+*.log 
