@@ -132,19 +132,19 @@ function run_client()
 	RPCClient.@rpc_import process_batch_job
 	
 	# Get all available sensors (by getting their data)
-	living_room_data = get_sensor_data(:living_room)
+	living_room_data = remote_get_sensor_data(:living_room)
 	@info "Retrieved $(length(living_room_data)) data points for living room"
 	
 	# Calculate statistics for each sensor
 	for sensor_id in [:living_room, :kitchen, :bedroom, :outside]
-		stats = calculate_stats(sensor_id)
+		stats = remote_calculate_stats(sensor_id)
 		@info "Statistics for $sensor_id: min=$(stats.min)°C, max=$(stats.max)°C, mean=$(stats.mean)°C"
 	end
 	
 	# Get data for a specific time range
 	start_time = DateTime(2023, 1, 3)
 	end_time = DateTime(2023, 1, 4)
-	outside_range_data = get_data_in_range(:outside, start_time, end_time)
+	outside_range_data = remote_get_data_in_range(:outside, start_time, end_time)
 	@info "Got $(length(outside_range_data)) outside temperature readings between $start_time and $end_time"
 	
 	# Start some batch jobs in parallel
@@ -153,7 +153,7 @@ function run_client()
 	for i in 1:3
 		job_name = "Data analysis job $i"
 		t = @async begin
-			result = process_batch_job(job_name, 2.0)
+			result = remote_process_batch_job(job_name, 2.0)
 			@info "Result: $result"
 			return result
 		end
