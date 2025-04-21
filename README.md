@@ -1,4 +1,4 @@
-# RPC
+# RPC.jl
 
 A Julia package providing Remote Procedure Call (RPC) functionality.
 
@@ -28,4 +28,4 @@ Run the tests with:
 ```julia
 using Pkg
 Pkg.test("RPC")
-``` 
+```
