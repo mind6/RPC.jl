@@ -2,6 +2,8 @@ using Test, Dates
 using Revise, RPC
 using Logging
 
+
+
 # Enable debug level logging
 ENV["JULIA_DEBUG"] = "RPC"
 debug_logger = ConsoleLogger(stderr, Logging.Debug)
@@ -48,6 +50,13 @@ function slow_operation(delay)
 	return "Completed after $delay seconds"
 end
 
+# Test function for array views
+function test_array_view(view_data)
+	# This function just returns the view it receives
+	# so we can check what happens during serialization/deserialization
+	return view_data
+end
+
 # 2. Start the server
 @info "Starting RPC server..."
 # Register functions directly by symbol
@@ -56,6 +65,7 @@ RPCServer.@rpc_export multiply
 RPCServer.@rpc_export greet
 RPCServer.@rpc_export get_date
 RPCServer.@rpc_export slow_operation
+RPCServer.@rpc_export test_array_view
 
 # Register functions by expression
 RPCServer.@rpc_export TestFunctions.add_expression
@@ -76,6 +86,7 @@ RPCClient.@rpc_import multiply
 RPCClient.@rpc_import greet
 RPCClient.@rpc_import get_date
 RPCClient.@rpc_import slow_operation
+RPCClient.@rpc_import test_array_view
 
 # Import expression-based functions 
 RPCClient.@rpc_import TestFunctions.add_expression
@@ -122,6 +133,32 @@ end
 results = fetch.(tasks)
 @info "All concurrent tasks completed"
 @test length(results) == 5
+
+# Test array view serialization
+@testset "RPC test - array view serialization" begin
+	original_array = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+	array_view = view(original_array, 3:7)
+	
+	# Send the view to the server and get it back
+	returned_data = remote_test_array_view(array_view)
+	
+	# Check if we got back a view or a copy
+	@info "Original view type: $(typeof(array_view))"
+	@info "Returned data type: $(typeof(returned_data))"
+	@test array_view == returned_data
+	# Test if the data values match
+	@test returned_data == [3, 4, 5, 6, 7]
+	
+	# Modify the original array to see if the returned data was a view or a copy
+	original_array[5] = 100
+	@info "Original array after modification: $original_array"
+	@info "Original view after modification: $array_view"
+	@info "Returned data after modification: $returned_data"
+	
+	# If returned_data was still a view onto original_array, it would reflect the change
+	# If it's a copy, it would remain unchanged
+	@test returned_data[3] != 100
+end
 
 # 6. Clean up
 @info "Disconnecting client..."
