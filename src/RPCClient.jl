@@ -1,9 +1,7 @@
 module RPCClient
-import ..RPC: send_serialized
-import ...RPCServer: FunctionName
+import ..RPC: send_serialized, deserialize, WebSockets, FunctionName, create_function_key, WrappedError, ResultOrException, Result
 
 export connect, disconnect, @rpc_import
-using HTTP.WebSockets, Serialization
 
 # Structure to hold connection state
 mutable struct Connection
@@ -16,6 +14,7 @@ end
 
 # Global connection
 const connection = Connection(nothing, nothing, Channel{Any}(Inf), Dict{UInt, Channel}(), false)
+request_processor = nothing
 
 """
 Connects to an RPC server
@@ -42,7 +41,7 @@ function connect(url="ws://127.0.0.1:8081")
 			@info "Connected to RPC server at $(url)"
 			
 			# Start a task to process outgoing requests
-			request_processor = @async begin
+			global request_processor = @async begin
 				@debug "Starting request processor task"
 				for request in connection.request_channel
 					if request === nothing
@@ -172,12 +171,19 @@ function call_remote(func_name::FunctionName, args...)
 	@debug "Cleaning up response channel" id
 	delete!(connection.response_channels, id)
 	
-	# Check if response is an error message
-	if response isa String && startswith(response, "Error: ")
+	# Handle the response based on its type
+	if response isa Result
+		@debug "Remote call completed successfully" id
+		return response.value
+	elseif response isa WrappedError
 		@debug "Remote call resulted in error" id response
+		throw(response)  # This will use the custom Base.showerror method
+	elseif response isa String && startswith(response, "Error: ")
+		# Handle legacy error format for compatibility
+		@debug "Remote call resulted in error (legacy format)" id response
 		error(response[8:end])
 	else
-		@debug "Remote call completed successfully" id
+		@debug "Remote call completed with direct value" id
 		return response
 	end
 end
@@ -207,9 +213,7 @@ macro rpc_import(func_expr)
 		local f = $(esc(func_expr))
 		
 		# Get the module path and function name
-		local func_module_path = fullname(typeof(f).name.module)
-		local func_name = typeof(f).name.name
-		local function_key = Pair(func_module_path, func_name)
+		local function_key = create_function_key(f)
 		
 		@debug "Importing remote function $($(QuoteNode(func_expr)))" function_key
 		

@@ -1,30 +1,12 @@
 module RPCServer
-import ..RPC: send_serialized
+import ..RPC: send_serialized, deserialize, WebSockets, FunctionName, create_function_key, WrappedError, ResultOrException, Result
 
 export start_server, stop_server, @rpc_export
-using HTTP.WebSockets, Serialization
 
 # Dictionary to store registered functions
-FunctionName = Pair{<:Tuple, Symbol}
 const function_registry = Dict{FunctionName, Function}()
 server_task = nothing
 server = nothing
-
-"""
-Registers a function with the RPC server
-"""
-function register_function(func::Function, display_name)
-	@debug "Registering function $(display_name) with RPC server"
-	
-	# Create the FunctionName from the function's module path and name
-	func_module_path = fullname(typeof(func).name.module)
-	func_name = typeof(func).name.name
-	function_key = Pair(func_module_path, func_name)
-	
-	@debug "Function key: $function_key"
-	function_registry[function_key] = func
-	return nothing
-end
 
 """
 Macro to register a function with the RPC server
@@ -39,8 +21,11 @@ macro rpc_export(func_expr)
 		
 		@debug "Registering function" display_name
 		
-		# Get the actual function name after evaluation
-		register_function(f, display_name)
+		# Create the FunctionName from the function's module path and name
+		local function_key = create_function_key(f)
+		
+		@debug "Function key: $function_key"
+		function_registry[function_key] = f
 	end
 end
 
@@ -67,7 +52,8 @@ function start_server(host="127.0.0.1", port=8081)
 				
 				if !(data isa Tuple) || length(data) < 2
 					@debug "Invalid message format received"
-					error_response = (0, "Error: Invalid message format. Expected (id, function_name, args...) but got $(data)")
+					error_msg = "Invalid message format. Expected (id, function_name, args...) but got $(data)"
+					error_response = (0, WrappedError(error_msg, ArgumentError(error_msg), backtrace()))
 					send_serialized(ws, error_response)
 					continue
 				end
@@ -80,27 +66,37 @@ function start_server(host="127.0.0.1", port=8081)
 				
 				if !(func_name isa FunctionName)
 					@debug "Function name is not a valid FunctionName" func_name
-					error_response = (id, "Error: Function name must be a Pair{Tuple, Symbol}")
+					error_msg = "Function name must be a Pair{Tuple, Symbol}"
+					error_response = (id, WrappedError(error_msg, ArgumentError(error_msg), backtrace()))
 					send_serialized(ws, error_response)
 					continue
 				end
 				
 				if !haskey(function_registry, func_name)
 					@debug "Function not found in registry" func_name
-					error_response = (id, "Error: Function $(func_name) not registered")
+					error_msg = "Function $(func_name) not registered"
+					error_response = (id, WrappedError(error_msg, ArgumentError(error_msg), backtrace()))
 					send_serialized(ws, error_response)
 					continue
 				end
 				
 				# Call the function with the provided arguments
 				@debug "Executing function" func_name args
-				result = function_registry[func_name](args...)
-				@debug "Function executed successfully" func_name result
-				
-				# Send the result back to the client with the request ID
-				response = (id, result)
-				@debug "Sending response to client" id
-				send_serialized(ws, response)
+				result = nothing
+				try
+					result = function_registry[func_name](args...)
+					@debug "Function executed successfully" func_name result
+					
+					# Send the result back to the client with the request ID
+					response = (id, Result(result))
+					@debug "Sending response to client" id
+					send_serialized(ws, response)
+				catch e
+					@debug "Error in function execution" exception=e catch_backtrace()
+					error_msg = "Error executing function $(func_name)"
+					error_response = (id, WrappedError(error_msg, e, catch_backtrace()))
+					send_serialized(ws, error_response)
+				end
 			catch e
 				@debug "Error processing request" exception=e catch_backtrace()
 				# Try to extract the ID if possible
@@ -111,7 +107,8 @@ function start_server(host="127.0.0.1", port=8081)
 				end
 				
 				# Send error back to client with ID if available
-				error_response = (id, "Error: $(e)")
+				error_msg = "Error processing RPC request"
+				error_response = (id, WrappedError(error_msg, e, catch_backtrace()))
 				send_serialized(ws, error_response)
 			end
 		end
@@ -129,13 +126,13 @@ end
 """
 Helper function to serialize and send an object over WebSocket
 """
-function send_serialized(ws, obj)
-	@debug "Serializing and sending data"
-	buffer = Vector{UInt8}()
-	io = IOBuffer(buffer, write=true)
-	Serialization.serialize(io, obj)
-	send(ws, take!(io))
-end
+# function send_serialized(ws, obj)
+# 	@debug "Serializing and sending data"
+# 	buffer = Vector{UInt8}()
+# 	io = IOBuffer(buffer, write=true)
+# 	Serialization.serialize(io, obj)
+# 	send(ws, take!(io))
+# end
 
 """
 Stops the RPC server
