@@ -33,9 +33,9 @@ end
 
 # Client-side functionality
 # Import the remote functions
-RPCClient.@rpc_import CrossProcessClient.add
-RPCClient.@rpc_import CrossProcessClient.multiply
-RPCClient.@rpc_import CrossProcessClient.divide_by_zero
+RPCClient.@rpc_import add
+RPCClient.@rpc_import multiply
+RPCClient.@rpc_import CrossProcessClient.divide_by_zero #prefixing is optional
 RPCClient.@rpc_import CrossProcessClient.normal_error
 
 function run_client_example()
@@ -76,10 +76,10 @@ end
 
 # Server-side functionality
 # Register the functions
-RPCServer.@rpc_export CrossProcessClient.add
+RPCServer.@rpc_export CrossProcessClient.add          #prefixing is optional
 RPCServer.@rpc_export CrossProcessClient.multiply
-RPCServer.@rpc_export CrossProcessClient.divide_by_zero
-RPCServer.@rpc_export CrossProcessClient.normal_error
+RPCServer.@rpc_export divide_by_zero
+RPCServer.@rpc_export normal_error
 
 function run_server()
 	@info "Server process started"
@@ -110,20 +110,16 @@ end # module CrossProcessClient
 function start_server_process()
 	# Get the current script path
 	current_script = @__FILE__
-	
-	# Ensure Windows path format
-	current_script = replace(current_script, "/" => "\\")
-	
-	# Start the server process with Windows-specific command
-	# Use full path to julia executable
-	julia_path = joinpath(dirname(dirname(Base.julia_cmd().exec[1])), "bin", "julia.exe")
-	
-	@info "Starting server in a separate visible terminal window"
-	@info "Using Julia at: $(julia_path)"
-	
-	# Start a new visible terminal window
-	# Chain the Julia command with a pause command to keep the window open
-	server_process = run(`cmd /c start "RPC Server" cmd /c ""$(julia_path)" $(current_script) server & pause"`, wait=false)
+
+	# Get just the Julia executable path (without additional arguments)
+	julia_exe = Base.julia_cmd().exec[1]
+
+	@info "Starting server in separate visible terminal window"
+	@info "Using Julia at: $julia_exe"
+
+	# Simplified command construction
+	cmd = `cmd /c start "RPC Server" cmd /c "$julia_exe $current_script server & pause"`
+	server_process = run(cmd, wait=false)
 	
 	return server_process
 end
