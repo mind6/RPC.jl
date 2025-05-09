@@ -189,7 +189,7 @@ function call_remote(func_name::FunctionName, args...)
 end
 
 """
-Creates a client-side proxy function for a remote procedure
+Given a function expression [ModulePath].function_name, defines a function called remote_[function_name] that calls the function on the RPC server.
 """
 macro rpc_import(func_expr)
 	# For expressions like MathUtils.add, extract the last part as the function name

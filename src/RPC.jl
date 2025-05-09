@@ -1,4 +1,8 @@
 module RPC
+
+#=
+#TODO: julia serialization is very slow for arrays with missing values, and probably for other complex types as well. It currently takes 5 seconds each way for a 240MB TradeRunSummary object. *ALL* of the bottleneck is in serialization/deserialization. But it's nearly instant for simple arrays of native types. If we want to speed this up we need to use a custom serialization format that skips around the chokepoints of the current implementation.
+=#
 using Serialization, HTTP.WebSockets
 
 ### Function identification ###

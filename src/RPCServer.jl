@@ -9,7 +9,11 @@ server_task = nothing
 server = nothing
 
 """
-Macro to register a function with the RPC server
+Registers the function [ModulePath].function_name with the directory in the RPC server module.
+
+Exports must be registered on the runtime instance of RPCServer. This means we must do it in the module init function. If we registered in the module global scope, it would be registered on the precompiled module, not the runtime instance.
+
+NOTE: The reason registration is needed is because the RPCServer cannot know about every module containing functions that might be called. Such functions need to be registered with the RPCServer.
 """
 macro rpc_export(func_expr)
 	return quote

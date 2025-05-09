@@ -2,6 +2,7 @@ using Test, Dates, DataFrames
 using Revise, RPC
 using Logging
 
+#TODO: create a compiled package test to show that @rpc_export must be in the registering module's init function, not the global scope.
 
 
 # Enable debug level logging
