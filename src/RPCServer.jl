@@ -131,19 +131,9 @@ function start_server(host="127.0.0.1", port=8081)
 	return server
 end
 
-"""
-Helper function to serialize and send an object over WebSocket
-"""
-# function send_serialized(ws, obj)
-# 	@debug "Serializing and sending data"
-# 	buffer = Vector{UInt8}()
-# 	io = IOBuffer(buffer, write=true)
-# 	Serialization.serialize(io, obj)
-# 	send(ws, take!(io))
-# end
 
 """
-Stops the RPC server.
+Stops the RPC server. You should generally disconnect clients before stopping the server.
 
 NOTE: force=true will immediately close the server even if there are still clients connected. It can generate a ton of error messages and prevent a new Websocket session from working, so use with caution.
 """
@@ -162,6 +152,7 @@ function stop_server(;force=false)
 		@info "RPC server will stop when all clients disconnect"
 		close(server)
 	end
+	wait(server_task)
 	server = nothing
 	server_task = nothing
 	@info "RPC server stopped"

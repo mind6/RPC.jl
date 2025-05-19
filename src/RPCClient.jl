@@ -7,14 +7,14 @@ export connect, disconnect, @rpc_import
 mutable struct Connection
 	ws::Union{Nothing, WebSockets.WebSocket}
 	task::Union{Nothing, Task}
+	request_processor::Union{Nothing, Task}
 	request_channel::Channel
 	response_channels::Dict{UInt, Channel}
 	is_connected::Bool
 end
 
 # Global connection
-const connection = Connection(nothing, nothing, Channel{Any}(Inf), Dict{UInt, Channel}(), false)
-request_processor = nothing
+const connection = Connection(nothing, nothing, nothing, Channel{Any}(Inf), Dict{UInt, Channel}(), false)
 
 function connect(;port = 8081)
 	url = "ws://127.0.0.1:$port"
@@ -46,7 +46,7 @@ function connect(url="ws://127.0.0.1:8081")
 			@info "Connected to RPC server at $(url)"
 			
 			# Start a task to process outgoing requests
-			global request_processor = @async begin
+			connection.request_processor = @async begin
 				@debug "Starting request processor task"
 				for request in connection.request_channel
 					if request === nothing
@@ -124,22 +124,27 @@ function disconnect()
 	@debug "Initiating client disconnect"
 	
 	# Signal the request processing task to stop
-	@debug "Sending shutdown signal to request processor"
-	put!(connection.request_channel, nothing)
-	
+	if connection.request_processor !== nothing
+		@debug "Sending shutdown signal to request processor"
+		put!(connection.request_channel, nothing)
+		@debug "Waiting for request processor to complete"
+		wait(connection.request_processor)
+		connection.request_processor = nothing
+	end
+
 	# Close the WebSocket connection
 	if connection.ws !== nothing
 		@debug "Closing WebSocket connection"
 		close(connection.ws)
 		connection.ws = nothing
 	end
-	
+
 	# Wait for the task to complete
 	if connection.task !== nothing && !istaskdone(connection.task)
 		@debug "Waiting for client task to complete"
 		wait(connection.task)
 	end
-	
+
 	connection.is_connected = false
 	@info "Disconnected from RPC server"
 end
