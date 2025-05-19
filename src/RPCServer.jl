@@ -33,6 +33,10 @@ macro rpc_export(func_expr)
 	end
 end
 
+function start_server(;host="127.0.0.1", port=8081)
+	start_server(host, port)
+end
+
 """
 Starts the RPC server on the specified host and port
 """
@@ -139,9 +143,11 @@ Helper function to serialize and send an object over WebSocket
 # end
 
 """
-Stops the RPC server
+Stops the RPC server.
+
+NOTE: force=true will immediately close the server even if there are still clients connected. It can generate a ton of error messages and prevent a new Websocket session from working, so use with caution.
 """
-function stop_server()
+function stop_server(;force=false)
 	global server_task, server
 	
 	if server === nothing
@@ -149,8 +155,13 @@ function stop_server()
 		return
 	end
 	
-	@debug "Stopping RPC server"
-	close(server)
+	if force
+		@info "RPC server is shutting down immediately"
+		WebSockets.forceclose(server)
+	else
+		@info "RPC server will stop when all clients disconnect"
+		close(server)
+	end
 	server = nothing
 	server_task = nothing
 	@info "RPC server stopped"

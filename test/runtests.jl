@@ -365,4 +365,12 @@ RPCClient.disconnect()
 @info "Stopping server..."
 RPCServer.stop_server()
 
+
+@info "Testing out of order disconnect..."
+RPCServer.start_server()
+RPCClient.connect()
+# RPCServer.stop_server(force=true) # NOTE: this generates tons of error messages, and will prevent another Websocket session from working.
+RPCClient.disconnect()
+
+
 @info "RPC test completed successfully!" 

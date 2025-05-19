@@ -16,6 +16,11 @@ end
 const connection = Connection(nothing, nothing, Channel{Any}(Inf), Dict{UInt, Channel}(), false)
 request_processor = nothing
 
+function connect(;port = 8081)
+	url = "ws://127.0.0.1:$port"
+	connect(url)
+end
+
 """
 Connects to an RPC server
 """
