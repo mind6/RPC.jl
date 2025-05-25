@@ -33,14 +33,10 @@ macro rpc_export(func_expr)
 	end
 end
 
-function start_server(;host="127.0.0.1", port=8081)
-	start_server(host, port)
-end
-
 """
 Starts the RPC server on the specified host and port
 """
-function start_server(host="127.0.0.1", port=8081)
+function start_server(;host="127.0.0.1", port=8081)
 	global server_task, server
 	
 	if server_task !== nothing

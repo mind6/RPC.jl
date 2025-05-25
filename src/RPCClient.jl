@@ -16,15 +16,11 @@ end
 # Global connection
 const connection = Connection(nothing, nothing, nothing, Channel{Any}(Inf), Dict{UInt, Channel}(), false)
 
-function connect(;port = 8081)
-	url = "ws://127.0.0.1:$port"
-	connect(url)
-end
-
 """
 Connects to an RPC server
 """
-function connect(url="ws://127.0.0.1:8081")
+function connect(;host="127.0.0.1", port = 8081)
+	url = "ws://$host:$port"
 	global connection
 	
 	if connection.is_connected
