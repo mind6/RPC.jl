@@ -133,7 +133,7 @@ RPCServer.@rpc_export test_df_and_grouped
 # 2. Start the server
 @info "Starting RPC server..."
 
-RPCServer.start_server()
+RPCServer.start_server(port=8888)
 
 sleep(1)
 # 3. Connect with the client
@@ -366,7 +366,7 @@ RPCServer.stop_server()
 
 
 @info "Testing out of order disconnect..."
-RPCServer.start_server()
+RPCServer.start_server(port=8888)
 RPCClient.connect()
 # RPCServer.stop_server(force=true) # NOTE: this generates tons of error messages, and will prevent another Websocket session from working.
 RPCClient.disconnect()
